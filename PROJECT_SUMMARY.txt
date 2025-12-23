@@ -1,0 +1,53 @@
+PROJECT SUMMARY - SERVER PLAYER APP
+=====================================
+
+1. BACKEND (Node.js)
+--------------------
+- Created `backend/` directory.
+- Implemented `server.js`:
+  - Acts as the Authorization Server.
+  - Endpoint `/auth`: Validates tokens (e.g., 'secure-token-123') and returns a session encryption key.
+  - Configured to run on Port 3000.
+- Implemented `encrypt_file.js`:
+  - Utility to encrypt .mp4 video files using AES-256-CBC.
+  - Generates .enc files for testing the player.
+
+2. FRONTEND (Flutter)
+---------------------
+- Created `frontend/` directory (Windows & Android support).
+- Dependencies: 
+  - `media_kit` for video playback.
+  - `encrypt` for decryption.
+  - `http` for server communication.
+- Implemented `AuthScreen` (`lib/screens/auth_screen.dart`):
+  - Fetches dynamic server URL from GitHub: 
+    https://raw.githubusercontent.com/goutham-11-16/tv/main/server_endpoint.json
+  - Handles Login with Session Token.
+  - Auto-adjusts localhost for Android Emulator (10.0.2.2).
+- Implemented `PlayerScreen` (`lib/screens/player_screen.dart`):
+  - "Secure In-Memory Playback": 
+    - Decrypts selected `.enc` files into RAM.
+    - Uses a local internal stream (localhost HTTP loopback) to feed the video player without writing decrypted files to disk.
+  - UI: Minimalist, Dark Theme (Google Fonts 'Outfit').
+  - Disabled download/sharing options.
+- Implemented `CryptoService` (`lib/services/crypto_service.dart`):
+  - Singleton service to hold the Session Key in memory.
+  - Handles AES-256 decryption logic.
+
+3. CONFIGURATION FILES
+----------------------
+- `pubspec.yaml`: Adjusted dependencies for `media_kit` compatibility on Windows/Android.
+- `PROJECT_SUMMARY.txt`: This file.
+
+HOW TO RUN
+----------
+1. Start Backend: 
+   cd backend
+   node server.js
+
+2. Encrypt a Video (for testing):
+   node encrypt_file.js your_video.mp4
+
+3. Run Frontend:
+   cd frontend
+   flutter run -d windows

@@ -1,0 +1,151 @@
+:root {
+    --bg-color: #121212;
+    --card-bg: #1e1e1e;
+    --text-color: #e0e0e0;
+    --accent-color: #3b82f6;
+    --accent-hover: #2563eb;
+    --border-color: #333;
+    --danger-color: #ef4444;
+}
+
+body {
+    font-family: 'Outfit', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+}
+
+.container {
+    width: 100%;
+    max-width: 800px;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+h1 {
+    margin: 0;
+    font-weight: 600;
+}
+
+p {
+    color: #888;
+}
+
+.card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-color);
+}
+
+.drop-zone {
+    border: 2px dashed #444;
+    border-radius: 8px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.drop-zone:hover {
+    border-color: var(--accent-color);
+    background: #1a1a2e;
+}
+
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: 0.2s;
+    font-family: inherit;
+}
+
+.btn.primary {
+    background: var(--accent-color);
+    color: white;
+    width: 100%;
+    margin-top: 15px;
+}
+
+.btn.primary:disabled {
+    background: #333;
+    color: #666;
+    cursor: not-allowed;
+}
+
+.btn.secondary {
+    background: #10b981;
+    color: white;
+    margin-top: 10px;
+}
+
+.btn.small {
+    padding: 8px 16px;
+    font-size: 0.9em;
+}
+
+.btn.danger {
+    background: var(--danger-color);
+    color: white;
+    padding: 5px 10px;
+    font-size: 0.8em;
+}
+
+.input-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+input[type="text"] {
+    flex: 1;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    background: #2c2c2c;
+    color: white;
+    font-family: inherit;
+}
+
+.file-list {
+    list-style: none;
+    padding: 0;
+}
+
+.file-item {
+    background: #252525;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: monospace;
+}
+
+.hidden {
+    display: none;
+}
+
+.status-text {
+    margin-top: 10px;
+    font-size: 0.9em;
+    color: #aaa;
+}
+
+code {
+    background: #333;
+    padding: 4px 8px;
+    border-radius: 4px;
+    color: #7dd3fc;
+}

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Admin Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>🔒 Admin Console</h1>
+            <p>Secure Video Management & Authorization</p>
+        </header>
+
+        <div class="card upload-section">
+            <h2>📤 Upload & Encrypt</h2>
+            <div class="drop-zone" id="dropZone">
+                <p>Drag & Drop Video Here or Click to Select</p>
+                <input type="file" id="fileInput" accept=".mp4,.mkv,.avi" hidden>
+            </div>
+            <div id="uploadStatus" class="status-text"></div>
+
+            <div class="input-group" style="margin-top: 15px;">
+                <input type="text" id="outputDirInput" placeholder="Server Output Path (Optional, e.g., C:/videos)">
+            </div>
+
+            <button id="encryptBtn" class="btn primary" disabled>Encrypt Video</button>
+            <div id="encryptionResult" class="hidden">
+                <p>Encryption Complete!</p>
+                <code>File ID: <span id="fileIdDisplay">pending...</span></code>
+                <button id="addToRegistryBtn" class="btn secondary">Authorize This File</button>
+            </div>
+        </div>
+
+        <div class="card registry-section">
+            <h2>📋 Authorized Files Registry</h2>
+            <div class="input-group">
+                <input type="text" id="manualIdInput" placeholder="Enter File ID manually...">
+                <button id="manualAddBtn" class="btn small">Add</button>
+            </div>
+            <ul id="registryList" class="file-list">
+                <!-- Items will be populated here -->
+            </ul>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
