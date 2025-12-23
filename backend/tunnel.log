@@ -19,3 +19,4 @@
 2025-12-23T12:40:56Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveP256] connIndex=0 event=0 ip=198.41.200.73
 2025-12-23T12:40:56Z INF ICMP proxy will use fe80::5660:ca0:37dd:e33 in zone Wi-Fi as source for IPv6
 2025-12-23T12:40:56Z INF Starting metrics server on 127.0.0.1:20241/metrics
+2025-12-23T12:40:56Z INF Registered tunnel connection connIndex=0 connection=6d56e135-3efe-463b-8576-42540f565571 event=0 ip=198.41.200.73 location=bom10 protocol=quic
