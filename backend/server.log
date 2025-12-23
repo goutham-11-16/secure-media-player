@@ -7,4 +7,9 @@ Server running on http://0.0.0.0:3000
 
 --- File Permission Control ---
 Type 'help' for commands.
-SERVER> 
+SERVER> [Registry] Added: fbe1ef26765476217478d2a8e1ca3df1c0fcc80824ee03301e9e70f937f6c909
+[Session Created] Code: 373165 for File: fbe1ef26765476217478d2a8e1ca3df1c0fcc80824ee03301e9e70f937f6c909 (Expires in 10 min)
+[Session Created] Code: 452574 for File: fbe1ef26765476217478d2a8e1ca3df1c0fcc80824ee03301e9e70f937f6c909 (Expires in 10 min)
+[Session Created] Code: 240933 for File: fbe1ef26765476217478d2a8e1ca3df1c0fcc80824ee03301e9e70f937f6c909 (Expires in 10 min)
+[Session Created] Code: 931244 for File: fbe1ef26765476217478d2a8e1ca3df1c0fcc80824ee03301e9e70f937f6c909 (Expires in 10 min)
+[Access Granted] Code: 931244, File: fbe1ef26765476217478d2a8e1ca3df1c0fcc80824ee03301e9e70f937f6c909

@@ -2,191 +2,167 @@
 .SYNOPSIS
     Automated Server Startup Script
 .DESCRIPTION
-    Prompts for video password, starts Node server, starts Cloudflare tunnel,
-    and updates GitHub with the new endpoint.
+    Starts Node server, Cloudflare tunnel,
+    optionally updates GitHub endpoint.
 .NOTES
-    Requires 'cloudflared' in PATH.
-    Requires 'GITHUB_TOKEN' env variable.
-    Save this file as UTF-8 (WITHOUT BOM).
+    Requires node & cloudflared in PATH.
+    GitHub update is OPTIONAL.
 #>
 
 param()
 
-# ===================== CONFIGURATION =====================
+# ===================== CONFIG =====================
 $GithubRepo = "goutham-11-16/tv"
 $GithubBranch = "main"
 $GithubFile = "server_endpoint.json"
 $LocalPort = 3000
-# ========================================================
+# ================================================
 
-# ===================== ENV CHECK =========================
-# ===================== ENV CHECK =========================
+# ===================== CHECKS =====================
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    Write-Error "Node.js not found in PATH."
+    exit 1
+}
+
+if (-not (Get-Command cloudflared -ErrorAction SilentlyContinue)) {
+    Write-Error "cloudflared not found in PATH."
+    exit 1
+}
+
+$githubEnabled = $true
 if (-not $env:GITHUB_TOKEN) {
-    Write-Warning "GITHUB_TOKEN environment variable is missing. GitHub update will be skipped."
-    # Continue anyway to start server/tunnel
+    Write-Warning "GITHUB_TOKEN missing → GitHub update will be skipped."
+    $githubEnabled = $false
 }
-# ========================================================
-# ========================================================
+# ================================================
 
-# ================= PASSWORD INPUT ========================
-if ($env:VIDEO_PASSWORD) {
-    $videoPassword = $env:VIDEO_PASSWORD
-    Write-Host "Using Video Password from Environment Variable." -ForegroundColor Green
-}
-else {
-    Write-Host "Enter Video Encryption Password (Hidden): " -NoNewline -ForegroundColor Cyan
-    $securePass = Read-Host -AsSecureString
-    $videoPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
-        [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePass)
-    )
-    Write-Host "`nPassword captured." -ForegroundColor Green
-}
-# ========================================================
-
-# ================= START NODE SERVER =====================
-Write-Host "Starting Auth Server on Port $LocalPort..." -ForegroundColor Cyan
+# ================= PASSWORD INPUT =================
+Write-Host "Enter Video Encryption Password (Hidden): " -NoNewline -ForegroundColor Cyan
+$securePass = Read-Host -AsSecureString
+$videoPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+    [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePass)
+)
+Write-Host "`nPassword captured." -ForegroundColor Green
 $env:VIDEO_PASSWORD = $videoPassword
+# ================================================
+
+# ================= START SERVER ===================
+Write-Host "Starting Auth Server on Port $LocalPort..." -ForegroundColor Cyan
 
 $nodeProcess = Start-Process `
-    -FilePath "node" `
+    -FilePath node `
     -ArgumentList "server.js" `
     -PassThru `
     -NoNewWindow `
     -RedirectStandardOutput "server.log" `
-    -RedirectStandardError  "server_err.log"
+    -RedirectStandardError "server_err.log"
 
-if (-not $nodeProcess.Id) {
-    Write-Error "Failed to start Node.js server."
-    exit 1
-}
+Write-Host "Server started (PID: $($nodeProcess.Id))" -ForegroundColor Green
+# ================================================
 
-Write-Host "Server started (PID: $($nodeProcess.Id)). Log: server.log" -ForegroundColor Green
-# ========================================================
-
-# ================= START CLOUDFLARE ======================
+# ================= START TUNNEL ===================
 Write-Host "Starting Cloudflare Tunnel..." -ForegroundColor Cyan
 
 $tunnelLog = "tunnel.log"
-if (Test-Path $tunnelLog) { Remove-Item $tunnelLog -Force }
+
+# SAFE truncate instead of delete
+"" | Out-File $tunnelLog -Encoding ascii -Force
 
 $tunnelProcess = Start-Process `
-    -FilePath "cloudflared" `
+    -FilePath cloudflared `
     -ArgumentList "tunnel --url http://localhost:$LocalPort" `
     -PassThru `
     -NoNewWindow `
     -RedirectStandardOutput "tunnel_stdout.log" `
-    -RedirectStandardError  $tunnelLog
+    -RedirectStandardError $tunnelLog
+# ================================================
 
-if (-not $tunnelProcess.Id) {
-    Stop-Process -Id $nodeProcess.Id -Force
-    Write-Error "Failed to start Cloudflare tunnel."
-    exit 1
-}
-# ========================================================
-
-# ================= CAPTURE TUNNEL URL ===================
+# ================= GET TUNNEL URL =================
 Write-Host "Waiting for Tunnel URL..." -NoNewline
 $tunnelUrl = $null
 
 for ($i = 0; $i -lt 30; $i++) {
-    if (Test-Path $tunnelLog) {
-        $log = Get-Content $tunnelLog -Raw
-        if ($log -match "https://[a-zA-Z0-9-]+\.trycloudflare\.com") {
-            $tunnelUrl = $matches[0]
-            break
-        }
+    $log = Get-Content $tunnelLog -Raw -ErrorAction SilentlyContinue
+    if ($log -match "https://[a-zA-Z0-9-]+\.trycloudflare\.com") {
+        $tunnelUrl = $matches[0]
+        break
     }
     Start-Sleep 1
     Write-Host "." -NoNewline
 }
 
 if (-not $tunnelUrl) {
-    Write-Error "`nFailed to capture Tunnel URL."
-    Stop-Process -Id $nodeProcess.Id -Force
-    Stop-Process -Id $tunnelProcess.Id -Force
-    exit 1
+    Write-Error "`nFailed to capture tunnel URL."
+    goto CLEANUP
 }
 
 Write-Host "`nTunnel Established: $tunnelUrl" -ForegroundColor Green
-# ========================================================
+# ================================================
 
-# ================= GITHUB UPDATE =========================
-Write-Host "Updating GitHub ($GithubRepo)..." -ForegroundColor Cyan
+# ================= GITHUB UPDATE ==================
+if ($githubEnabled) {
+    Write-Host "Updating GitHub endpoint..." -ForegroundColor Cyan
 
-$repoParts = $GithubRepo.Split("/")
-$owner = $repoParts[0]
-$repo = $repoParts[1]
-$path = $GithubFile
+    try {
+        $repoParts = $GithubRepo.Split("/")
+        $owner = $repoParts[0]
+        $repo = $repoParts[1]
 
-$headers = @{
-    Authorization = "Bearer $env:GITHUB_TOKEN"
-    Accept        = "application/vnd.github+json"
-    "User-Agent"  = "server-player-automation"
-}
+        $headers = @{
+            Authorization = "Bearer $env:GITHUB_TOKEN"
+            Accept        = "application/vnd.github+json"
+            "User-Agent"  = "secure-media-player"
+        }
 
-try {
-    # --- Build GET URI safely ---
-    $getBuilder = New-Object System.UriBuilder
-    $getBuilder.Scheme = "https"
-    $getBuilder.Host = "api.github.com"
-    $getBuilder.Path = "repos/$owner/$repo/contents/$path"
-    $getBuilder.Query = "ref=$GithubBranch"
-    $getUri = $getBuilder.Uri
+        # ---- BUILD GET URI (SAFE) ----
+        $getBuilder = New-Object System.UriBuilder
+        $getBuilder.Scheme = "https"
+        $getBuilder.Host = "api.github.com"
+        $getBuilder.Path = "repos/$owner/$repo/contents/$GithubFile"
+        $getBuilder.Query = "ref=$GithubBranch"
+        $getUri = $getBuilder.Uri
 
-    $fileInfo = Invoke-RestMethod -Uri $getUri -Headers $headers -Method Get
-    $sha = $fileInfo.sha
+        $existing = Invoke-RestMethod -Uri $getUri -Headers $headers -Method Get
+        $sha = $existing.sha
 
-    # --- Prepare new content ---
-    $contentObj = @{
-        auth_server = $tunnelUrl
-        updated_at  = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
-        status      = "online"
+        # ---- BUILD CONTENT ----
+        $payload = @{
+            auth_server = $tunnelUrl
+            updated_at  = (Get-Date).ToString("o")
+            status      = "online"
+        }
+
+        $body = @{
+            message = "Update server endpoint"
+            content = [Convert]::ToBase64String(
+                [Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Depth 5))
+            )
+            sha     = $sha
+            branch  = $GithubBranch
+        } | ConvertTo-Json -Depth 5
+
+        # ---- BUILD PUT URI (SAFE) ----
+        $putBuilder = New-Object System.UriBuilder
+        $putBuilder.Scheme = "https"
+        $putBuilder.Host = "api.github.com"
+        $putBuilder.Path = "repos/$owner/$repo/contents/$GithubFile"
+        $putUri = $putBuilder.Uri
+
+        Invoke-RestMethod -Method Put -Uri $putUri -Headers $headers -Body $body
+
+        Write-Host "GitHub updated successfully." -ForegroundColor Green
     }
-
-    $jsonContent = $contentObj | ConvertTo-Json -Depth 5
-    $encodedContent = [Convert]::ToBase64String(
-        [Text.Encoding]::UTF8.GetBytes($jsonContent)
-    )
-
-    $body = @{
-        message = "Update server endpoint to $tunnelUrl"
-        content = $encodedContent
-        sha     = $sha
-        branch  = $GithubBranch
-    } | ConvertTo-Json -Depth 5
-
-    # --- Build PUT URI safely ---
-    $putBuilder = New-Object System.UriBuilder
-    $putBuilder.Scheme = "https"
-    $putBuilder.Host = "api.github.com"
-    $putBuilder.Path = "repos/$owner/$repo/contents/$path"
-    $putUri = $putBuilder.Uri
-
-    Invoke-RestMethod -Uri $putUri -Headers $headers -Method Put -Body $body
-    Write-Host "GitHub Updated Successfully!" -ForegroundColor Green
+    catch {
+        Write-Warning "GitHub update skipped: $($_.Exception.Message)"
+    }
 }
-catch {
-    Write-Error "GitHub Update Failed: $($_.Exception.Message)"
-}
-# ========================================================
+# ================================================
 
-# ================= WAIT LOOP =============================
-Write-Host "`n--------------------------------------------------" -ForegroundColor Yellow
-Write-Host " Service Running. Press ENTER to Stop." -ForegroundColor Yellow
-Write-Host "--------------------------------------------------" -ForegroundColor Yellow
+Write-Host "`nService running. Press ENTER to stop." -ForegroundColor Yellow
+Read-Host
 
-if ($env:CI_MODE) {
-    Write-Host "Service Running in CI Mode. Loop forever..." -ForegroundColor Yellow
-    while ($true) { Start-Sleep 60 }
-}
-else {
-    Read-Host
-}
-# ========================================================
-
-# ================= CLEANUP ===============================
+:CLEANUP
 Write-Host "Stopping services..." -ForegroundColor Cyan
 Stop-Process -Id $nodeProcess.Id -ErrorAction SilentlyContinue
 Stop-Process -Id $tunnelProcess.Id -ErrorAction SilentlyContinue
 Write-Host "Stopped." -ForegroundColor Green
-# ========================================================
