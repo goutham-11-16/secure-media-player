@@ -153,27 +153,91 @@ rl.on('line', (line) => {
     rl.prompt();
 });
 
+// --- Session Management ---
+const SESSIONS = new Map(); // Code -> { fileId, expiresAt }
+const CLEANUP_INTERVAL = 60 * 1000; // 1 minute
+
+// Cleanup expired sessions
+setInterval(() => {
+    const now = Date.now();
+    for (const [code, session] of SESSIONS.entries()) {
+        if (now > session.expiresAt) {
+            SESSIONS.delete(code);
+        }
+    }
+}, CLEANUP_INTERVAL);
+
+function generateSessionCode() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
 // --- Server Routes ---
 
-// 1. Auth Endpoint (Player)
-app.post("/auth", (req, res) => {
-    console.log("Auth request:", req.body);
-    const { token, file_id } = req.body;
+// 1. Owner Login
+app.post('/api/login', (req, res) => {
+    const { password } = req.body;
+    if (password === PASSWORD) {
+        // Return a simple admin token for this session (MVP)
+        res.json({ success: true, token: 'admin-secret' });
+    } else {
+        res.status(401).json({ success: false, message: 'Invalid Password' });
+    }
+});
 
-    if (!token || !file_id) {
-        return res.status(400).json({ success: false, message: "Missing token or file_id" });
+// 2. Generate Session Code (Owner Only)
+app.post('/api/session/create', (req, res) => {
+    const { token, fileId, validityMinutes } = req.body;
+
+    // Simple Admin Check
+    if (token !== 'admin-secret') {
+        return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
 
-    if (!VALID_TOKENS.includes(token)) {
-        return res.status(401).json({ success: false, message: "Invalid session token" });
+    if (!registry.isAllowed(fileId)) {
+        // If file not in registry, add it automatically? 
+        // Spec says "App contacts server... Server checks: File allowed?".
+        // If Owner generates code, they implicitly allow it.
+        registry.add(fileId);
     }
 
-    if (!registry.isAllowed(file_id)) {
-        console.log(`[Auth Denied] Blocked request for file ID: ${file_id}`);
-        return res.status(403).json({ success: false, message: "Unauthorized File ID" });
+    const code = generateSessionCode();
+    const expiresIn = (validityMinutes || 5) * 60 * 1000;
+
+    SESSIONS.set(code, {
+        fileId: fileId,
+        expiresAt: Date.now() + expiresIn
+    });
+
+    console.log(`[Session Created] Code: ${code} for File: ${fileId} (Expires in ${validityMinutes || 5} min)`);
+    res.json({ success: true, code: code, expiresAt: Date.now() + expiresIn });
+});
+
+// 3. Verify Session (Viewer)
+app.post('/api/session/verify', (req, res) => {
+    const { code, fileId } = req.body;
+
+    const session = SESSIONS.get(code);
+
+    if (!session) {
+        return res.status(403).json({ success: false, message: "Invalid or expired code." });
     }
 
-    console.log(`[Auth Granted] Token: ${token}, File: ${file_id}`);
+    if (Date.now() > session.expiresAt) {
+        SESSIONS.delete(code);
+        return res.status(403).json({ success: false, message: "Code expired." });
+    }
+
+    if (session.fileId !== fileId) {
+        return res.status(403).json({ success: false, message: "Code not valid for this file." });
+    }
+
+    if (!registry.isAllowed(fileId)) {
+        return res.status(403).json({ success: false, message: "File access revoked by owner." });
+    }
+
+    console.log(`[Access Granted] Code: ${code}, File: ${fileId}`);
+
+    // Return the Encryption Key (MVP: Same Global Key for now)
     res.json({
         success: true,
         session_key: KEY.toString("base64"),
@@ -182,7 +246,7 @@ app.post("/auth", (req, res) => {
 });
 
 app.get('/status', (req, res) => {
-    res.json({ status: 'online', service: 'Server Player Auth' });
+    res.json({ status: 'online', service: 'Secure Media Server' });
 });
 
 // 2. Admin API Endpoints

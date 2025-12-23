@@ -1,5 +1,8 @@
 import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:encrypt/encrypt.dart' as enc;
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
 class CryptoService {
@@ -16,6 +19,8 @@ class CryptoService {
   bool _isAuthorized = false;
 
   bool get isAuthorized => _isAuthorized;
+  enc.Key? get sessionKey => _sessionKey;
+  enc.IV? get sessionIV => _sessionIV;
 
   // Initialize the session with keys received from the server (Base64 Encoded)
   void initializeSession(String keyBase64, String ivBase64) {
@@ -25,6 +30,13 @@ class CryptoService {
     debugPrint("Session Authorized. Key in memory.");
   }
 
+  // Initialize with raw keys (for Creator)
+  void setKeys(enc.Key key, enc.IV iv) {
+    _sessionKey = key;
+    _sessionIV = iv;
+    _isAuthorized = true;
+  }
+
   void clearSession() {
     _sessionKey = null;
     _sessionIV = null;
@@ -32,23 +44,15 @@ class CryptoService {
     debugPrint("Session Cleared.");
   }
 
-  // Decrypts a file stream or bytes.
-  // For the video player, we might need to serve a local HTTP stream or use a custom MediaKit resource.
-  // MediaKit supports playing from `Stream<List<int>>`.
+  void deriveKeyFromPassword(String password) {
+    var keyDigest = sha256.convert(utf8.encode(password));
+    var ivDigest = md5.convert(utf8.encode(password));
 
-  // Decrypts a chunk of data.
-  // Note: AES-CBC is block based. Random access is hard without re-initializing the cipher for the specific block.
-  // However, `encrypt` package is high-level.
-  // If we just want to play the file, efficient streaming decryption is needed.
-  // For this MVP, we will try to decrypt the PRELOADED bytes if small enough, or stream.
-  // Given: "Never save decrypted content to disk".
-  // Node.js implementation uses AES-256-CBC.
-
-  // NOTE: Standard CBC decryption requires the previous block to decrypt the current one.
-  // This means seeking is difficult without an index or decrypting from start.
-  // For this prototype, we'll assume linear playback or small enough files to load in memory (RAM).
-  // If files are large (GBs), we'd need CTR mode or HLS with keys.
-  // Sticking to the requirements: "Decrypt video in memory only".
+    _sessionKey = enc.Key(Uint8List.fromList(keyDigest.bytes));
+    _sessionIV = enc.IV(Uint8List.fromList(ivDigest.bytes));
+    _isAuthorized = true;
+    debugPrint("Keys derived from password.");
+  }
 
   Future<Uint8List> decryptFileToMemory(String filePath) async {
     if (!_isAuthorized || _sessionKey == null || _sessionIV == null) {
@@ -68,5 +72,31 @@ class CryptoService {
     );
 
     return Uint8List.fromList(decrypted);
+  }
+
+  Future<void> encryptFile(String inputPath, String outputPath) async {
+    if (!_isAuthorized || _sessionKey == null || _sessionIV == null) {
+      throw Exception("Keys not set");
+    }
+
+    final inputFile = File(inputPath);
+    final inputBytes = await inputFile.readAsBytes();
+
+    final encrypter = enc.Encrypter(
+      enc.AES(_sessionKey!, mode: enc.AESMode.cbc, padding: 'PKCS7'),
+    );
+
+    final encrypted = encrypter.encryptBytes(inputBytes, iv: _sessionIV);
+
+    final outputFile = File(outputPath);
+    await outputFile.writeAsBytes(encrypted.bytes);
+    debugPrint("Encrypted $inputPath to $outputPath");
+  }
+
+  Future<String> calculateFileId(String filePath) async {
+    final file = File(filePath);
+    final bytes = await file.readAsBytes();
+    final digest = sha256.convert(bytes);
+    return digest.toString();
   }
 }

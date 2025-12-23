@@ -20,21 +20,27 @@ $LocalPort = 3000
 # ========================================================
 
 # ===================== ENV CHECK =========================
+# ===================== ENV CHECK =========================
 if (-not $env:GITHUB_TOKEN) {
-    Write-Error "GITHUB_TOKEN environment variable is missing."
-    Write-Host "Set it first:" -ForegroundColor Yellow
-    Write-Host '$env:GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxx"' -ForegroundColor Yellow
-    exit 1
+    Write-Warning "GITHUB_TOKEN environment variable is missing. GitHub update will be skipped."
+    # Continue anyway to start server/tunnel
 }
+# ========================================================
 # ========================================================
 
 # ================= PASSWORD INPUT ========================
-Write-Host "Enter Video Encryption Password (Hidden): " -NoNewline -ForegroundColor Cyan
-$securePass = Read-Host -AsSecureString
-$videoPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
-    [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePass)
-)
-Write-Host "`nPassword captured." -ForegroundColor Green
+if ($env:VIDEO_PASSWORD) {
+    $videoPassword = $env:VIDEO_PASSWORD
+    Write-Host "Using Video Password from Environment Variable." -ForegroundColor Green
+}
+else {
+    Write-Host "Enter Video Encryption Password (Hidden): " -NoNewline -ForegroundColor Cyan
+    $securePass = Read-Host -AsSecureString
+    $videoPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+        [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePass)
+    )
+    Write-Host "`nPassword captured." -ForegroundColor Green
+}
 # ========================================================
 
 # ================= START NODE SERVER =====================
@@ -168,7 +174,14 @@ catch {
 Write-Host "`n--------------------------------------------------" -ForegroundColor Yellow
 Write-Host " Service Running. Press ENTER to Stop." -ForegroundColor Yellow
 Write-Host "--------------------------------------------------" -ForegroundColor Yellow
-Read-Host
+
+if ($env:CI_MODE) {
+    Write-Host "Service Running in CI Mode. Loop forever..." -ForegroundColor Yellow
+    while ($true) { Start-Sleep 60 }
+}
+else {
+    Read-Host
+}
 # ========================================================
 
 # ================= CLEANUP ===============================

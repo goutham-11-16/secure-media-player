@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'screens/auth_screen.dart';
+import 'screens/welcome_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,7 +16,7 @@ class ServerPlayerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Server Player',
+      title: 'Secure Media Access',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF121212),
@@ -28,7 +28,7 @@ class ServerPlayerApp extends StatelessWidget {
           surface: Color(0xFF1E1E1E),
         ),
       ),
-      home: const AuthScreen(),
+      home: const WelcomeScreen(),
     );
   }
 }

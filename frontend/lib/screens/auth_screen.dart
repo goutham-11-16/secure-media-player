@@ -19,6 +19,7 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   final TextEditingController _tokenController = TextEditingController();
   final TextEditingController _fileController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
   File? _selectedFile;
   String? _fileHash;
   String _statusMessage = "Initializing...";
@@ -94,7 +95,8 @@ class _AuthScreenState extends State<AuthScreen> {
       if (Platform.isAndroid) _serverUrl = "http://10.0.2.2:3000";
 
       setState(() {
-        _statusMessage = "Discovery Failed. Defaulting to: $_serverUrl";
+        _statusMessage =
+            "Discovery Failed. Defaulting to: $_serverUrl\n(If not running locally, Server is OFFLINE)";
         _isLoading = false;
       });
     }
@@ -165,9 +167,13 @@ class _AuthScreenState extends State<AuthScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('$_serverUrl/auth'),
+        Uri.parse('$_serverUrl/api/session/verify'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'token': token, 'file_id': _fileHash}),
+        body: jsonEncode({
+          'code': token,
+          'fileId': _fileHash,
+          'viewerName': _nameController.text,
+        }),
       );
 
       if (response.statusCode == 200) {
@@ -201,9 +207,13 @@ class _AuthScreenState extends State<AuthScreen> {
         try {
           final fallbackUrl = 'http://localhost:3000';
           final response = await http.post(
-            Uri.parse('$fallbackUrl/auth'),
+            Uri.parse('$fallbackUrl/api/session/verify'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'token': token, 'file_id': _fileHash}),
+            body: jsonEncode({
+              'code': token,
+              'fileId': _fileHash,
+              'viewerName': _nameController.text,
+            }),
           );
 
           if (response.statusCode == 200) {
@@ -309,7 +319,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 controller: _tokenController,
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  labelText: "Session Token",
+                  labelText: "Session Code",
                   labelStyle: const TextStyle(color: Colors.grey),
                   filled: true,
                   fillColor: const Color(0xFF2C2C2C),
@@ -320,6 +330,24 @@ class _AuthScreenState extends State<AuthScreen> {
                   prefixIcon: const Icon(Icons.key, color: Colors.grey),
                 ),
               ),
+              const SizedBox(height: 16),
+              // --- Viewer Name Input ---
+              TextField(
+                controller: _nameController,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: "Your Name (for Owner Log)",
+                  labelStyle: const TextStyle(color: Colors.grey),
+                  filled: true,
+                  fillColor: const Color(0xFF2C2C2C),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                  prefixIcon: const Icon(Icons.person, color: Colors.grey),
+                ),
+              ),
+              // -------------------------
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
